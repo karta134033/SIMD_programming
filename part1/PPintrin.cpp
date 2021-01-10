@@ -272,7 +272,7 @@ void _pp_hadd(__pp_vec<T> &vecResult, __pp_vec<T> &vec)
 {
   for (int i = 0; i < VECTOR_WIDTH / 2; i++)
   {
-    T result = vec.value[2 * i] + vec.value[2 * i + 1];
+    T result = vec.value[2 * i] + vec.value[2 * i + 1];   // a[0] = (a[0] + a[1]), a[1] = (a[0] + a[1]), a[2] = (a[2] + a[3]), a[3] = (a[2] + a[3]) ...
     vecResult.value[2 * i] = result;
     vecResult.value[2 * i + 1] = result;
   }

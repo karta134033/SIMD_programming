@@ -43,68 +43,55 @@ void absVector(float *values, float *output, int N)
 
 void clampedExpVector(float *values, int *exponents, float *output, int N)
 {
-  //
-  // PP STUDENTS TODO: Implement your vectorized version of
-  // clampedExpSerial() here.
-  //
-  // Your solution should work for any value of
-  // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
-  //
-  
-  vector<tuple<float *, __pp_vec_float, int *, __pp_mask>> destValues;
+  vector<tuple<float *, __pp_vec_float, __pp_vec_int>> destValues;
+
   for (int i = 0; i < N; i += VECTOR_WIDTH)
   {
-    float *valuesPtr = values + i;
+    float *valuesPtr = values + i;  // trace current pointer location
     float *outputPtr = output + i;
-
-     __pp_vec_float destValue;
+    int *exponentsPtr = exponents + i;
     int maskWidth = i + VECTOR_WIDTH <= N ? VECTOR_WIDTH : N - i;  // decide calculate units
-    __pp_mask mask = _pp_init_ones(maskWidth);
-    _pp_vload_float(destValue, valuesPtr, mask);
 
-    int *exponentsCopy = new int[VECTOR_WIDTH];
-    int exponentsEnd = i + VECTOR_WIDTH;
-    for (int j = i, k = 0; j < exponentsEnd; j++, k++)
-    {  // copy the origin exponents without changing it and initial output value
-      exponentsCopy[k] = exponents[j];
-      if (mask.value[k])
-        output[j] = 1;
-      else
-        output[j] = 0;
-    }
+    __pp_vec_float destValue;
+    __pp_vec_float outputValue;
+    __pp_vec_int exponentsValue;
 
-    tuple<float *, __pp_vec_float, int *, __pp_mask> destValueTuple(outputPtr, destValue, exponentsCopy, mask);
+    __pp_mask dataMask = _pp_init_ones(maskWidth);
+    _pp_vload_float(destValue, valuesPtr, dataMask);
+    _pp_vload_int(exponentsValue, exponentsPtr, dataMask);  // load *exponents according to dataMask 
+    _pp_vset_float(outputValue, 1, dataMask);
+    _pp_vstore_float(outputPtr, outputValue, dataMask);  // initialize *output to 1
+
+    tuple<float *, __pp_vec_float, __pp_vec_int> destValueTuple(outputPtr, destValue, exponentsValue);
     destValues.push_back(destValueTuple);
   }
 
-  for (auto dv : destValues)
-  {
-    int maxExponents = 0;
-    for (int j = 0; j < VECTOR_WIDTH; j++)
-      if (get<2>(dv)[j] > maxExponents) maxExponents = get<2>(dv)[j];
+  for (auto &dv : destValues) {
+    __pp_mask mask = _pp_init_ones();
+    __pp_mask greaterThanZeroMask = _pp_mask_not(mask);
+    __pp_vec_int zeroExp = _pp_vset_int(0);
+    _pp_vgt_int(greaterThanZeroMask, get<2>(dv), zeroExp, mask);
 
-    while (maxExponents >= 1)
+    while (_pp_cntbits(greaterThanZeroMask))  // while exponents is still a positive number
     {
       __pp_vec_float dvResult;
       __pp_vec_float baseValue;
-      _pp_vload_float(baseValue, get<0>(dv), get<3>(dv));
-      _pp_vmult_float(dvResult, baseValue, get<1>(dv), get<3>(dv));
-      for (int j = 0; j < VECTOR_WIDTH; j++)
-      {
-        if (!get<2>(dv)[j] && get<3>(dv).value[j])  // when exponents is 0 and not be calculated
-        {
-          get<0>(dv)[j] = 1;
-          get<3>(dv).value[j] = 0;
-        }
-        else if (get<3>(dv).value[j])
-        {
-          get<0>(dv)[j] = dvResult.value[j] > 9.999999 ? 9.999999 : dvResult.value[j];  // assign value to output
-          get<2>(dv)[j]--;
-          if (!get<2>(dv)[j] && get<3>(dv).value[j])
-            get<3>(dv).value[j] = 0;
-        }
-      }
-      maxExponents--;
+      __pp_vec_float maxValue = _pp_vset_float(9.999999);
+      __pp_vec_int zeroExp = _pp_vset_int(0);
+      __pp_vec_int ones;  // as a subtrahend of exponentsValue
+      __pp_mask maxValueMask = _pp_mask_not(mask);
+
+      _pp_vload_float(baseValue, get<0>(dv), mask);  // load current output value to baseValue
+      _pp_vmult_float(dvResult, baseValue, get<1>(dv), greaterThanZeroMask);  // multiply by it's original value
+      _pp_vgt_float(maxValueMask, dvResult, maxValue, mask);  // compare current result to 9.999999
+      _pp_vset_float(dvResult, 9.999999, maxValueMask);  // clamp max value
+      _pp_vstore_float(get<0>(dv), dvResult, greaterThanZeroMask);
+
+      _pp_vset_int(ones, 1, greaterThanZeroMask);
+      _pp_vsub_int(get<2>(dv), get<2>(dv), ones, greaterThanZeroMask);  // update exponents value
+
+      greaterThanZeroMask = _pp_mask_not(mask);
+      _pp_vgt_int(greaterThanZeroMask, get<2>(dv), zeroExp, mask);  // update greaterThanZeroMask
     }
   }
 }
@@ -114,14 +101,25 @@ void clampedExpVector(float *values, int *exponents, float *output, int N)
 // You can assume VECTOR_WIDTH is a power of 2
 float arraySumVector(float *values, int N)
 {
-
-  //
-  // PP STUDENTS TODO: Implement your vectorized version of arraySumSerial here
-  //
+  float returnValue = 0;
+  __pp_vec_float finalResult;
+  __pp_mask mask = _pp_init_ones();
+  _pp_vset_float(finalResult, 0, mask);
 
   for (int i = 0; i < N; i += VECTOR_WIDTH)
   {
+    float *valuesPtr = values + i;  // trace current pointer location
+    __pp_vec_float vecValue = _pp_vset_float(0);  // initialize
+    __pp_vec_float vecResult = _pp_vset_float(0);
+
+    _pp_vload_float(vecValue, valuesPtr, mask);  // load current "value" to "vecValue"
+    _pp_hadd_float(vecValue, vecValue);
+    _pp_interleave_float(vecResult, vecValue);
+    _pp_vadd_float(finalResult, finalResult , vecResult, mask);
   }
 
-  return 0.0;
+  for (int i = 0; i < VECTOR_WIDTH / 2; i++)
+    returnValue += finalResult.value[i];
+
+  return returnValue;
 }

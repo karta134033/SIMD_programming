@@ -154,6 +154,7 @@ bool verifyResult(float *values, int *exponents, float *output, float *gold, int
   {
     if (abs(output[i] - gold[i]) > epsilon)
     {
+      printf("output[%d]: %f incorrect, gold[%d]: %f\n", i, output[i], i, gold[i]);
       incorrect = i;
       break;
     }
