@@ -3,7 +3,7 @@ tags: 平行程式設計
 ---
 
 # SIMD Programming
-<font color="red">此作業是模擬SIMD指令，並非使用一般常見的SSE, AVX等...</
+<font color="red">此作業是模擬SIMD指令，並非使用一般常見的SSE, AVX等...</font>
 
 Part1
 ---
