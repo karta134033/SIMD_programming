@@ -3,15 +3,8 @@ tags: 平行程式設計
 ---
 
 # SIMD Programming
-<style>
-img {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 5px;
-  width: 85%
-  
-}
-</style>
+<font color="red">此作業是模擬SIMD指令，並非使用一般常見的SSE, AVX等...</
+
 Part1
 ---
 * Q1-1
